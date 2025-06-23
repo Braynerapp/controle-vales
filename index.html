@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Controle de Produção</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png"> <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#2c3e50">
+</head>
+<body>
+    <header id="appHeader" style="display: none;">
+        <h1>Controle de Produção</h1>
+        <nav>
+            <button id="navLancamento" onclick="showTab('abaLancamento')">Lançamento</button>
+            <button id="navCadastros" onclick="showTab('abaCadastros')">Cadastros</button>
+            <button id="navRelatorios" onclick="showTab('abaRelatorios')">Relatórios</button>
+            <button id="btnLogout" onclick="logout()">Sair</button>
+        </nav>
+    </header>
+
+    <main>
+        <section id="loginScreen" class="tab-content active">
+            <h2>Acessar o Sistema</h2>
+            <form id="loginForm">
+                <label for="username">Usuário:</label>
+                <input type="text" id="username" required>
+
+                <label for="password">Senha:</label>
+                <input type="password" id="password" required>
+
+                <button type="submit">Entrar</button>
+            </form>
+            <div id="loginMessage" class="error-message"></div>
+        </section>
+
+        <section id="abaLancamento" class="tab-content">
+            <h2>Lançamento de Produção</h2>
+            <form id="lancamentoForm">
+                <input type="hidden" id="editProdId">
+                
+                <div class="cadastro-acordeao">
+                    <div class="acordeao-item">
+                        <button class="acordeao-header active" type="button" onclick="toggleAcordeao(this)"><h3>Informações Gerais</h3></button>
+                        <div class="acordeao-content active">
+                            <label for="lancamentoData">Data:</label>
+                            <input type="date" id="lancamentoData" required>
+                            <div class="error-message" data-field="lancamentoData"></div>
+
+                            <label for="filialSelect">Filial:</label>
+                            <select id="filialSelect" required onchange="filterTerceirizadasByFilial()">
+                                <option value="">Selecione a Filial</option>
+                            </select>
+                            <div class="error-message" data-field="filialSelect"></div>
+
+                            <label for="empresaTerceirizadaSelect">Empresa Terceirizada:</label>
+                            <select id="empresaTerceirizadaSelect" required onchange="clearFuncionarioFields()">
+                                <option value="">Selecione a Terceirizada</option>
+                            </select>
+                            <div class="error-message" data-field="empresaTerceirizadaSelect"></div>
+
+                            <label for="armazemSelect">Armazém:</label>
+                            <select id="armazemSelect" required>
+                                <option value="">Selecione o Armazém</option>
+                            </select>
+                            <div class="error-message" data-field="armazemSelect"></div>
+
+                            <label for="turnoSelect">Turno:</label>
+                            <select id="turnoSelect" required>
+                                <option value="">Selecione o Turno</option>
+                                <optgroup label="Turnos de 6 Horas">
+                                    <option value="07x13">07:00x13:00</option>
+                                    <option value="13x19">13:00x19:00</option>
+                                    <option value="19x01">19:00x01:00</option>
+                                    <option value="01x07">01:00x07:00</option>
+                                </optgroup>
+                                <optgroup label="Turnos de 8 Horas">
+                                    <option value="07x15">07:00x15:00</option>
+                                    <option value="15x23">15:00x23:00</option>
+                                    <option value="23x07">23:00x07:00</option>
+                                </optgroup>
+                            </select>
+                            <div class="error-message" data-field="turnoSelect"></div>
+
+                            <label for="observacoes">Observações:</label>
+                            <textarea id="observacoes" rows="3" placeholder="Observações sobre o lançamento..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cadastro-acordeao">
+                    <div class="acordeao-item">
+                        <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Detalhes da Produção (Tarefas)</h3></button>
+                        <div class="acordeao-content">
+                            <div class="dynamic-field-group">
+                                <label for="inputTarefaNome">Tarefa:</label>
+                                <select id="inputTarefaNome" onchange="updateInputTarefaValor()">
+                                    <option value="">Selecione a Tarefa</option>
+                                </select>
+                                <div class="error-message" data-field="inputTarefaNome"></div>
+
+                                <label for="inputQuantidade">Quantidade:</label>
+                                <input type="number" id="inputQuantidade" min="0" step="0.01">
+                                <div class="error-message" data-field="inputQuantidade"></div>
+
+                                <label for="inputValorUnitarioTarefa">Valor Unitário:</label>
+                                <input type="number" id="inputValorUnitarioTarefa" min="0" step="0.01" readonly>
+                                
+                                <button type="button" onclick="addTarefaToList()">Adicionar Tarefa</button>
+                            </div>
+
+                            <div id="tarefasListContainer" class="added-items-list">
+                                <h4>Tarefas Adicionadas:</h4>
+                                <ul id="currentLancamentoTarefasList">
+                                    </ul>
+                                <p class="total-summary">Total das Tarefas: <span id="totalProducaoTarefas">R$ 0,00</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cadastro-acordeao">
+                    <div class="acordeao-item">
+                        <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Funcionários Terceirizados Envolvidos</h3></button>
+                        <div class="acordeao-content">
+                            <div class="dynamic-field-group">
+                                <label for="inputFuncionarioMatricula">Matrícula:</label>
+                                <input type="text" id="inputFuncionarioMatricula" oninput="showFuncionarioSuggestionsInput()" autocomplete="off">
+                                <div id="inputFuncionarioSuggestions" class="autocomplete-list" style="display: none;"></div>
+                                <div class="error-message" data-field="inputFuncionarioMatricula"></div>
+
+                                <label for="inputFuncionarioNomeField">Nome do Funcionário:</label>
+                                <input type="text" id="inputFuncionarioNomeField" readonly>
+                                <input type="hidden" id="inputFuncionarioIdField">
+                                <div class="error-message" data-field="inputFuncionarioNomeField"></div>
+
+                                <button type="button" onclick="addFuncionarioToList()">Adicionar Funcionário</button>
+                            </div>
+
+                            <div id="funcionariosListContainer" class="added-items-list">
+                                <h4>Funcionários Adicionados:</h4>
+                                <ul id="currentLancamentoFuncionariosList">
+                                    </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="total-summary">Valor Total Geral do Lançamento: <span id="totalGeralLancamento">R$ 0,00</span></p>
+
+                <div class="form-actions">
+                    <button type="button" id="btnSalvarLancamento" onclick="registrarProducao()">Salvar Lançamento</button>
+                    <button type="button" onclick="clearLancamentoForm()">Limpar Formulário</button>
+                    <button type="button" id="btnImprimirComprovante" style="display: none;" onclick="printLancamentoComprovante(this.dataset.lancamentoId)">
+                        Gerar Comprovante (Imprimir)
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section id="abaCadastros" class="tab-content">
+            <h2>Cadastros</h2>
+
+            <div class="cadastro-acordeao">
+                <div class="acordeao-item">
+                    <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Filiais</h3></button>
+                    <div class="acordeao-content">
+                        <input type="text" id="filialNome" placeholder="Nome da Filial">
+                        <input type="text" id="filialEndereco" placeholder="Endereço da Filial">
+                        <button onclick="addFilial()">Adicionar Filial</button>
+                        <ul id="filiaisList"></ul>
+                    </div>
+                </div>
+
+                <div class="acordeao-item">
+                    <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Empresas Terceirizadas</h3></button>
+                    <div class="acordeao-content">
+                        <label for="terceirizadaFilialSelect">Filial Associada:</label>
+                        <select id="terceirizadaFilialSelect" required>
+                            <option value="">Selecione a Filial</option>
+                        </select>
+                        <input type="text" id="terceirizadaNome" placeholder="Nome da Empresa Terceirizada">
+                        <input type="text" id="terceirizadaCnpj" placeholder="CNPJ (opcional)">
+                        <button onclick="addTerceirizada()">Adicionar Terceirizada</button>
+                        <ul id="terceirizadasList"></ul>
+                    </div>
+                </div>
+
+                <div class="acordeao-item">
+                    <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Funcionários Terceirizados</h3></button>
+                    <div class="acordeao-content">
+                        <input type="hidden" id="editFuncId">
+                        <label for="funcionarioTerceirizadaSelect">Empresa Terceirizada:</label>
+                        <select id="funcionarioTerceirizadaSelect" required>
+                            <option value="">Selecione a Terceirizada</option>
+                        </select>
+                        <div class="error-message" data-field="funcionarioTerceirizadaSelect"></div>
+
+                        <label for="funcionarioNome">Nome do Funcionário:</label>
+                        <input type="text" id="funcionarioNome" placeholder="Nome do Funcionário" required>
+                        <div class="error-message" data-field="funcionarioNome"></div>
+
+                        <label for="funcionarioMatricula">Matrícula:</label>
+                        <input type="text" id="funcionarioMatricula" placeholder="Matrícula" required>
+                        <div class="error-message" data-field="funcionarioMatricula"></div>
+                        
+                        <div class="form-actions" style="justify-content: flex-start; margin-top: 10px;">
+                            <button type="button" id="btnFuncAddEdit" onclick="addOrUpdateFuncionario()">Adicionar Funcionário</button>
+                            <button type="button" id="btnFuncCancelEdit" style="display: none;" onclick="cancelEditFuncionario()">Cancelar Edição</button>
+                        </div>
+                        
+                        <hr style="margin: 20px 0;">
+
+                        <div class="table-filters">
+                            <input type="text" id="searchFuncionario" placeholder="Buscar por nome ou matrícula" oninput="searchAndFilterFuncionarios()">
+                            <select id="filterFuncionarioTerceirizada" onchange="searchAndFilterFuncionarios()">
+                                <option value="Todos">Todas as Terceirizadas</option>
+                                </select>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table id="funcionariosTable">
+                                <thead>
+                                    <tr>
+                                        <th>Matrícula</th>
+                                        <th>Nome</th>
+                                        <th>Empresa Terceirizada</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="pagination-controls">
+                            <button onclick="goToPageFuncionarios('prev')">Anterior</button>
+                            <span id="pageInfoFuncionarios">Página 1 de 1</span>
+                            <button onclick="goToPageFuncionarios('next')">Próxima</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acordeao-item">
+                    <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Tarefas de Produção</h3></button>
+                    <div class="acordeao-content">
+                        <input type="text" id="tarefaNome" placeholder="Nome da Tarefa">
+                        <input type="number" id="tarefaValorUnitario" placeholder="Valor Unitário" step="0.01">
+                        <button onclick="addTarefa()">Adicionar Tarefa</button>
+                        <ul id="tarefasList"></ul>
+                    </div>
+                </div>
+
+                <div class="acordeao-item">
+                    <button class="acordeao-header" type="button" onclick="toggleAcordeao(this)"><h3>Armazéns</h3></button>
+                    <div class="acordeao-content">
+                        <input type="text" id="armazemNome" placeholder="Nome do Armazém">
+                        <button onclick="addArmazem()">Adicionar Armazém</button>
+                        <ul id="armazensList"></ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="abaRelatorios" class="tab-content">
+            <h2>Relatórios de Produção</h2>
+
+            <div class="dashboard-summary">
+                <h3>Resumo Rápido</h3>
+                <p>Total de Lançamentos Pendentes: <strong id="totalLancamentosPendentes">0</strong></p>
+                <p>Valor Total Pendente: <strong id="valorTotalPendente">R$ 0,00</strong></p>
+            </div>
+
+            <h3>Relatório Detalhado</h3>
+            <div class="filters">
+                <label for="filterStartDate">De:</label>
+                <input type="date" id="filterStartDate" onchange="renderDetailedReport()">
+
+                <label for="filterEndDate">Até:</label>
+                <input type="date" id="filterEndDate" onchange="renderDetailedReport()">
+
+                <label for="filterFilial">Filial:</label>
+                <select id="filterFilial" onchange="renderDetailedReport()">
+                    <option value="Todos">Todos</option>
+                </select>
+
+                <label for="filterTerceirizada">Empresa Terceirizada:</label>
+                <select id="filterTerceirizada" onchange="renderDetailedReport()">
+                    <option value="Todos">Todos</option>
+                </select>
+
+                <label for="filterStatus">Status Pagamento:</label>
+                <select id="filterStatus" onchange="renderDetailedReport()">
+                    <option value="Todos">Todos</option>
+                    <option value="Pendente" selected>Pendente</option>
+                    <option value="Pago">Pago</option>
+                </select>
+            </div>
+            
+            <div class="report-actions-batch">
+                <button onclick="markSelectedAsPaid()">Marcar Selecionados como Pagos</button>
+                <button onclick="markSelectedAsPendente()">Marcar Selecionados como Pendentes</button>
+                <button onclick="exportReportToCSV()">Exportar para CSV</button>
+            </div>
+
+            <div class="table-responsive">
+                <table id="detailedReportTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllReportItems" onchange="toggleSelectAllReportItems(this.checked)"></th>
+                            <th>Nº Lanç.</th>
+                            <th>Data</th>
+                            <th>Filial</th>
+                            <th>Terceirizada</th>
+                            <th>Valor Total</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination-controls">
+                <button onclick="goToPageRelatorios('prev')">Anterior</button>
+                <span id="pageInfoRelatorios">Página 1 de 1</span>
+                <button onclick="goToPageRelatorios('next')">Próxima</button>
+            </div>
+
+            <h3>Relatórios de Custo</h3>
+            <div class="faturamento-relatorios">
+                <div class="faturamento-item">
+                    <h4>Custo por Filial</h4>
+                    <select id="faturamentoFilialSelect" onchange="generateFaturamentoReport('filial')">
+                        <option value="Todos">Todas as Filiais</option>
+                    </select>
+                    <div id="faturamentoFilialReport"></div>
+                </div>
+                <div class="faturamento-item">
+                    <h4>Custo por Empresa Terceirizada</h4>
+                    <select id="faturamentoTerceirizadaSelect" onchange="generateFaturamentoReport('terceirizada')">
+                        <option value="Todos">Todas as Terceirizadas</option>
+                    </select>
+                    <div id="faturamentoTerceirizadaReport"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toastContainer"></div>
+
+    <script src="script.js"></script>
+    <script>
+        // Registrar o Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => {
+                        console.log('Service Worker registrado com sucesso:', reg);
+                    })
+                    .catch(err => {
+                        console.warn('Erro ao registrar o Service Worker:', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
